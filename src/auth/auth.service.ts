@@ -192,7 +192,7 @@ export class AuthService {
     };
   }
 
-  async refreshToken(refreshToken: string): Promise<{ accessToken: string }> {
+  async refreshToken(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
     try {
       const payload = this.jwtService.verify(refreshToken, {
         secret: this.configService.get<string>('JWT_REFRESH_SECRET') || 'gastrobi-refresh-secret',
@@ -225,9 +225,7 @@ export class AuthService {
         currentRestaurantId,
       };
 
-      return {
-        accessToken: this.jwtService.sign(newPayload),
-      };
+      return this.generateTokens(newPayload);
     } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }
