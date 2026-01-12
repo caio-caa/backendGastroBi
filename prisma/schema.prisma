@@ -1,0 +1,552 @@
+// GastroBI+ Database Schema
+// Prisma v7
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum UserType {
+  RESTAURANT
+  ADMIN
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  OWNER
+  MANAGER
+  STAFF
+}
+
+enum RestaurantStatus {
+  ACTIVE
+  TRIAL
+  SUSPENDED
+  CANCELLED
+}
+
+enum SubscriptionPlan {
+  BASIC
+  PREMIUM
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  TRIAL
+}
+
+enum CustomerLevel {
+  BRONZE
+  SILVER
+  GOLD
+}
+
+enum OrderType {
+  BALCAO
+  MESA
+  COMANDA
+  DELIVERY
+}
+
+enum OrderStatus {
+  OPEN
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+enum TableStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+}
+
+enum CampaignType {
+  WHATSAPP
+  EMAIL
+  SMS
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+enum LoyaltyRuleType {
+  PURCHASE
+  CHECKIN
+  BIRTHDAY
+  REFERRAL
+  SOCIAL_SHARE
+  REVIEW
+}
+
+enum LoyaltyRewardType {
+  DISCOUNT_PERCENTAGE
+  DISCOUNT_FIXED
+  FREE_PRODUCT
+  FREE_DELIVERY
+  POINTS_MULTIPLIER
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+}
+
+// ============================================
+// CORE MODELS
+// ============================================
+
+model User {
+  id               String            @id @default(uuid())
+  email            String            @unique
+  passwordHash     String
+  type             UserType
+  role             UserRole
+  fullName         String
+  phone            String?
+  avatar           String?
+  twoFactorEnabled Boolean           @default(false)
+  twoFactorSecret  String?
+  isActive         Boolean           @default(true)
+  lastLoginAt      DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  deletedAt        DateTime?
+
+  restaurantUsers  RestaurantUser[]
+  auditLogs        AuditLog[]
+
+  @@index([email])
+  @@index([type])
+  @@index([deletedAt])
+}
+
+model Restaurant {
+  id            String            @id @default(uuid())
+  slug          String            @unique
+  name          String
+  cnpj          String?
+  phone         String?
+  email         String?
+  address       Json?
+  timezone      String            @default("America/Sao_Paulo")
+  currency      String            @default("BRL")
+  status        RestaurantStatus  @default(TRIAL)
+  settings      Json              @default("{}")
+  openingHours  Json              @default("[]")
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  deletedAt     DateTime?
+
+  restaurantUsers RestaurantUser[]
+  customers       Customer[]
+  categories      Category[]
+  products        Product[]
+  tables          Table[]
+  orders          Order[]
+  campaigns       Campaign[]
+  loyaltyRules    LoyaltyRule[]
+  loyaltyRewards  LoyaltyReward[]
+  subscription    Subscription?
+
+  @@index([slug])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model RestaurantUser {
+  id           String   @id @default(uuid())
+  userId       String
+  restaurantId String
+  role         UserRole @default(STAFF)
+  permissions  Json     @default("[]")
+  isDefault    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
+
+  user       User       @relation(fields: [userId], references: [id])
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+
+  @@unique([userId, restaurantId])
+  @@index([userId])
+  @@index([restaurantId])
+  @@index([deletedAt])
+}
+
+// ============================================
+// BUSINESS MODELS
+// ============================================
+
+model Customer {
+  id           String        @id @default(uuid())
+  restaurantId String
+  name         String
+  email        String?
+  phone        String
+  birthday     DateTime?
+  points       Int           @default(0)
+  level        CustomerLevel @default(BRONZE)
+  totalSpent   Float         @default(0)
+  visitCount   Int           @default(0)
+  tags         Json          @default("[]")
+  notes        String?
+  referralCode String?
+  referredBy   String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?
+
+  restaurant     Restaurant       @relation(fields: [restaurantId], references: [id])
+  orders         Order[]
+  loyaltyHistory LoyaltyHistory[]
+
+  @@unique([restaurantId, phone])
+  @@index([restaurantId])
+  @@index([email])
+  @@index([phone])
+  @@index([level])
+  @@index([deletedAt])
+}
+
+model Category {
+  id           String    @id @default(uuid())
+  restaurantId String
+  name         String
+  description  String?
+  image        String?
+  order        Int       @default(0)
+  isActive     Boolean   @default(true)
+  schedule     Json?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  products   Product[]
+
+  @@index([restaurantId])
+  @@index([order])
+  @@index([deletedAt])
+}
+
+model Product {
+  id             String    @id @default(uuid())
+  restaurantId   String
+  categoryId     String
+  name           String
+  description    String?
+  price          Float
+  cost           Float?
+  image          String?
+  variations     Json      @default("[]")
+  extras         Json      @default("[]")
+  allergens      Json      @default("[]")
+  nutritionalInfo Json?
+  preparationTime Int      @default(15)
+  order          Int       @default(0)
+  isActive       Boolean   @default(true)
+  isAvailable    Boolean   @default(true)
+  isPromotion    Boolean   @default(false)
+  isBestSeller   Boolean   @default(false)
+  isNew          Boolean   @default(false)
+  originalPrice  Float?
+  tags           Json      @default("[]")
+  schedule       Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  restaurant Restaurant  @relation(fields: [restaurantId], references: [id])
+  category   Category    @relation(fields: [categoryId], references: [id])
+  orderItems OrderItem[]
+
+  @@index([restaurantId])
+  @@index([categoryId])
+  @@index([isActive])
+  @@index([deletedAt])
+}
+
+model Table {
+  id           String      @id @default(uuid())
+  restaurantId String
+  number       String
+  capacity     Int         @default(4)
+  qrCodeUrl    String?
+  status       TableStatus @default(AVAILABLE)
+  currentOrder String?
+  waiter       String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  deletedAt    DateTime?
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  orders     Order[]
+
+  @@unique([restaurantId, number])
+  @@index([restaurantId])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model Order {
+  id             String      @id @default(uuid())
+  restaurantId   String
+  customerId     String?
+  tableId        String?
+  type           OrderType
+  status         OrderStatus @default(OPEN)
+  subtotal       Float       @default(0)
+  discount       Float       @default(0)
+  deliveryFee    Float       @default(0)
+  total          Float       @default(0)
+  paymentMethod  String?
+  notes          String?
+  deliveryAddress Json?
+  comandaNumber  String?
+  waiterName     String?
+  idempotencyKey String?     @unique
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  deletedAt      DateTime?
+
+  restaurant Restaurant  @relation(fields: [restaurantId], references: [id])
+  customer   Customer?   @relation(fields: [customerId], references: [id])
+  table      Table?      @relation(fields: [tableId], references: [id])
+  items      OrderItem[]
+
+  @@index([restaurantId])
+  @@index([customerId])
+  @@index([tableId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([deletedAt])
+}
+
+model OrderItem {
+  id           String   @id @default(uuid())
+  orderId      String
+  productId    String
+  productName  String
+  price        Float
+  quantity     Int      @default(1)
+  observations String?
+  extras       Json     @default("[]")
+  variation    Json?
+  status       String   @default("pending")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+// ============================================
+// MARKETING MODELS
+// ============================================
+
+model Campaign {
+  id            String         @id @default(uuid())
+  restaurantId  String
+  name          String
+  type          CampaignType
+  status        CampaignStatus @default(DRAFT)
+  message       String
+  segmentation  Json           @default("{}")
+  scheduledFor  DateTime?
+  sentAt        DateTime?
+  metrics       Json           @default("{}")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  deletedAt     DateTime?
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+
+  @@index([restaurantId])
+  @@index([status])
+  @@index([type])
+  @@index([deletedAt])
+}
+
+model LoyaltyRule {
+  id           String          @id @default(uuid())
+  restaurantId String
+  name         String
+  type         LoyaltyRuleType
+  points       Int
+  description  String?
+  conditions   Json?
+  isActive     Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  deletedAt    DateTime?
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+
+  @@index([restaurantId])
+  @@index([type])
+  @@index([isActive])
+  @@index([deletedAt])
+}
+
+model LoyaltyReward {
+  id           String            @id @default(uuid())
+  restaurantId String
+  name         String
+  pointsCost   Int
+  type         LoyaltyRewardType
+  value        Float?
+  productId    String?
+  description  String?
+  isActive     Boolean           @default(true)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  deletedAt    DateTime?
+
+  restaurant     Restaurant       @relation(fields: [restaurantId], references: [id])
+  loyaltyHistory LoyaltyHistory[]
+
+  @@index([restaurantId])
+  @@index([isActive])
+  @@index([deletedAt])
+}
+
+model LoyaltyHistory {
+  id         String   @id @default(uuid())
+  customerId String
+  type       String
+  points     Int
+  rewardId   String?
+  orderId    String?
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  customer Customer       @relation(fields: [customerId], references: [id])
+  reward   LoyaltyReward? @relation(fields: [rewardId], references: [id])
+
+  @@index([customerId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+// ============================================
+// PLATFORM MODELS
+// ============================================
+
+model Subscription {
+  id           String             @id @default(uuid())
+  restaurantId String             @unique
+  plan         SubscriptionPlan   @default(BASIC)
+  status       SubscriptionStatus @default(TRIAL)
+  period       String             @default("monthly")
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  deletedAt    DateTime?
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  payments   Payment[]
+
+  @@index([restaurantId])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model Payment {
+  id             String   @id @default(uuid())
+  subscriptionId String
+  amount         Float
+  status         String
+  invoiceUrl     String?
+  stripePaymentId String?
+  createdAt      DateTime @default(now())
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+
+  @@index([subscriptionId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model WhiteLabelConfig {
+  id          String   @id @default(uuid())
+  clientName  String   @unique
+  brandName   String
+  domain      String   @unique
+  logo        String?
+  favicon     String?
+  primaryColor   String  @default("#3b82f6")
+  secondaryColor String  @default("#1e40af")
+  accentColor    String  @default("#10b981")
+  features    Json     @default("{}")
+  customCSS   String?
+  customJS    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([clientName])
+  @@index([domain])
+  @@index([deletedAt])
+}
+
+model AuditLog {
+  id         String      @id @default(uuid())
+  userId     String?
+  userType   UserType?
+  action     AuditAction
+  entity     String
+  entityId   String?
+  oldValue   Json?
+  newValue   Json?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime    @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([action])
+  @@index([entity])
+  @@index([createdAt])
+}
+
+// ============================================
+// SYSTEM MODELS
+// ============================================
+
+model IdempotencyKey {
+  key       String   @id
+  response  Json
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}

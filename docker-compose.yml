@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://gastrobi:gastrobi@db:5432/gastrobi
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=gastrobi-jwt-secret-change-in-production
+      - JWT_REFRESH_SECRET=gastrobi-refresh-secret-change-in-production
+      - JWT_ACCESS_EXPIRES=15m
+      - JWT_REFRESH_EXPIRES=7d
+      - CORS_ORIGINS=http://localhost:3001,http://localhost:3002,http://localhost:3003
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - gastrobi-network
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=gastrobi
+      - POSTGRES_PASSWORD=gastrobi
+      - POSTGRES_DB=gastrobi
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gastrobi"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - gastrobi-network
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - gastrobi-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  gastrobi-network:
+    driver: bridge
