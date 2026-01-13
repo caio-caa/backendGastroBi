@@ -21,6 +21,10 @@ import { BillingModule } from './billing/billing.module';
 import { AuditLogsModule } from './audit-logs/audit-logs.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { HealthModule } from './health/health.module';
+import { DashboardModule } from './dashboard/dashboard.module';
+import { SettingsModule } from './settings/settings.module';
+import { AlertsModule } from './alerts/alerts.module';
+import { ReportsModule } from './reports/reports.module';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
 
 @Module({
@@ -54,6 +58,10 @@ import { TenantMiddleware } from './common/middleware/tenant.middleware';
     AuditLogsModule,
     UploadsModule,
     HealthModule,
+    DashboardModule,
+    SettingsModule,
+    AlertsModule,
+    ReportsModule,
   ],
   providers: [
     {

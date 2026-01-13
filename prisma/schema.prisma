@@ -542,11 +542,148 @@ model AuditLog {
 // SYSTEM MODELS
 // ============================================
 
+model Alert {
+  id           String   @id @default(uuid())
+  restaurantId String
+  type         String   @default("info") // warning, info, success, error
+  priority     String   @default("low") // low, medium, high
+  title        String
+  message      String
+  actionUrl    String?
+  isRead       Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime?
+
+  @@index([restaurantId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+model RestaurantSettings {
+  id           String   @id @default(uuid())
+  restaurantId String   @unique
+  
+  // Social Media
+  instagram    String?
+  facebook     String?
+  whatsapp     String?
+  tiktok       String?
+  
+  // Loyalty Configuration
+  loyaltyEnabled       Boolean @default(true)
+  pointsPerReal        Int     @default(1)
+  bronzeThreshold      Int     @default(0)
+  silverThreshold      Int     @default(200)
+  goldThreshold        Int     @default(500)
+  platinumThreshold    Int     @default(1000)
+  pointsExpiration     Int     @default(365) // days
+  welcomeBonus         Int     @default(50)
+  birthdayBonus        Int     @default(100)
+  referralBonus        Int     @default(150)
+  
+  // Notifications
+  notifyNewCustomer     Boolean @default(true)
+  notifyCampaignResults Boolean @default(true)
+  notifyLowStock        Boolean @default(false)
+  notifyDailyReport     Boolean @default(true)
+  notifyOrderReceived   Boolean @default(true)
+  notifyPaymentReceived Boolean @default(true)
+  notifySystemUpdates   Boolean @default(false)
+  
+  // Integrations
+  integrations Json @default("{}")
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([restaurantId])
+}
+
 model IdempotencyKey {
   key       String   @id
   response  Json
   createdAt DateTime @default(now())
   expiresAt DateTime
 
+  @@index([expiresAt])
+}
+
+// ============================================
+// COUPON & DELIVERY MODELS
+// ============================================
+
+model Coupon {
+  id                String    @id @default(uuid())
+  restaurantId      String
+  code              String
+  discountType      String    // percentage, fixed
+  discountValue     Float
+  minOrderValue     Float?
+  maxDiscount       Float?
+  usageLimit        Int?      // max total uses
+  usageCount        Int       @default(0)
+  perCustomerLimit  Int?      // max uses per customer
+  isFirstPurchase   Boolean   @default(false)
+  isActive          Boolean   @default(true)
+  startsAt          DateTime?
+  expiresAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+
+  usages CouponUsage[]
+
+  @@unique([restaurantId, code])
+  @@index([restaurantId])
+  @@index([code])
+  @@index([isActive])
+  @@index([expiresAt])
+  @@index([deletedAt])
+}
+
+model CouponUsage {
+  id         String   @id @default(uuid())
+  couponId   String
+  customerId String?
+  orderId    String?
+  discount   Float
+  createdAt  DateTime @default(now())
+
+  coupon Coupon @relation(fields: [couponId], references: [id])
+
+  @@index([couponId])
+  @@index([customerId])
+}
+
+model DeliveryZone {
+  id              String   @id @default(uuid())
+  restaurantId    String
+  name            String
+  zipCodeStart    String   // CEP inicial do range
+  zipCodeEnd      String   // CEP final do range
+  fee             Float
+  estimatedTime   Int      // minutos
+  freeMinimum     Float?   // valor mínimo para frete grátis
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+
+  @@index([restaurantId])
+  @@index([zipCodeStart])
+  @@index([zipCodeEnd])
+  @@index([isActive])
+  @@index([deletedAt])
+}
+
+model CustomerOtp {
+  id        String   @id @default(uuid())
+  phone     String
+  code      String
+  expiresAt DateTime
+  verified  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([phone])
   @@index([expiresAt])
 }
