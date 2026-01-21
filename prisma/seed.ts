@@ -406,22 +406,37 @@ async function main() {
 
   // 9. Create Tables
   const tables = await Promise.all(
-    Array.from({ length: 12 }, (_, i) =>
-      prisma.table.create({
-        data: {
+    Array.from({ length: 12 }, (_, i) => {
+      const tableNumber = String(i + 1).padStart(2, '0');
+      return prisma.table.upsert({
+        where: {
+          restaurantId_number: {
+            restaurantId: restaurant.id,
+            number: tableNumber,
+          },
+        },
+        update: {},
+        create: {
           restaurantId: restaurant.id,
-          number: String(i + 1).padStart(2, '0'),
+          number: tableNumber,
           capacity: i < 4 ? 2 : i < 8 ? 4 : 6,
         },
-      }),
-    ),
+      });
+    }),
   );
   console.log('✅ Tables created:', tables.length);
 
   // 10. Create Customers
   const customers = await Promise.all([
-    prisma.customer.create({
-      data: {
+    prisma.customer.upsert({
+      where: {
+        restaurantId_phone: {
+          restaurantId: restaurant.id,
+          phone: '(11) 99999-1111',
+        },
+      },
+      update: {},
+      create: {
         restaurantId: restaurant.id,
         name: 'Maria Silva',
         email: 'maria@email.com',
@@ -436,8 +451,15 @@ async function main() {
         notes: 'Cliente preferencial, sempre pede pizza margherita',
       },
     }),
-    prisma.customer.create({
-      data: {
+    prisma.customer.upsert({
+      where: {
+        restaurantId_phone: {
+          restaurantId: restaurant.id,
+          phone: '(11) 88888-2222',
+        },
+      },
+      update: {},
+      create: {
         restaurantId: restaurant.id,
         name: 'João Santos',
         email: 'joao.santos@email.com',
@@ -451,8 +473,15 @@ async function main() {
         tags: ['regular'],
       },
     }),
-    prisma.customer.create({
-      data: {
+    prisma.customer.upsert({
+      where: {
+        restaurantId_phone: {
+          restaurantId: restaurant.id,
+          phone: '(11) 77777-3333',
+        },
+      },
+      update: {},
+      create: {
         restaurantId: restaurant.id,
         name: 'Ana Costa',
         email: 'ana@email.com',
