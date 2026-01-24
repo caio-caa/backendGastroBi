@@ -2,9 +2,29 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { SubscriptionPlan, SubscriptionStatus } from '@prisma/client';
 
+interface SubscriptionResponse {
+  id: string;
+  restaurantId: string;
+  restaurantName: string;
+  plan: SubscriptionPlan;
+  status: SubscriptionStatus;
+  startDate: string;
+  nextBillingDate: string;
+  amount: number;
+}
+
 @Injectable()
 export class BillingService {
   constructor(private prisma: PrismaService) {}
+
+  private getPlanAmount(plan: SubscriptionPlan): number {
+    const prices = {
+      [SubscriptionPlan.BASIC]: 99.00,
+      [SubscriptionPlan.PREMIUM]: 299.00,
+      [SubscriptionPlan.ENTERPRISE]: 599.00,
+    };
+    return prices[plan];
+  }
 
   async getSubscription(restaurantId: string) {
     const subscription = await this.prisma.subscription.findUnique({
@@ -14,6 +34,9 @@ export class BillingService {
           take: 10,
           orderBy: { createdAt: 'desc' },
         },
+        restaurant: {
+          select: { name: true },
+        },
       },
     });
 
@@ -21,7 +44,22 @@ export class BillingService {
       throw new NotFoundException('Subscription not found');
     }
 
-    return subscription;
+    return {
+      id: subscription.id,
+      restaurantId: subscription.restaurantId,
+      restaurantName: subscription.restaurant.name,
+      plan: subscription.plan,
+      status: subscription.status,
+      startDate: subscription.currentPeriodStart?.toISOString() || subscription.createdAt.toISOString(),
+      nextBillingDate: subscription.currentPeriodEnd?.toISOString() || '',
+      amount: this.getPlanAmount(subscription.plan),
+      paymentHistory: subscription.payments.map(payment => ({
+        id: payment.id,
+        amount: payment.amount,
+        status: payment.status,
+        paidAt: payment.createdAt.toISOString(),
+      })),
+    };
   }
 
   async updatePlan(restaurantId: string, plan: SubscriptionPlan) {
@@ -50,7 +88,7 @@ export class BillingService {
     if (status) where.status = status;
     if (plan) where.plan = plan;
 
-    const [data, total] = await Promise.all([
+    const [subscriptions, total] = await Promise.all([
       this.prisma.subscription.findMany({
         where,
         skip,
@@ -64,6 +102,17 @@ export class BillingService {
       }),
       this.prisma.subscription.count({ where }),
     ]);
+
+    const data: SubscriptionResponse[] = subscriptions.map((sub) => ({
+      id: sub.id,
+      restaurantId: sub.restaurantId,
+      restaurantName: sub.restaurant.name,
+      plan: sub.plan,
+      status: sub.status,
+      startDate: sub.currentPeriodStart?.toISOString() || sub.createdAt.toISOString(),
+      nextBillingDate: sub.currentPeriodEnd?.toISOString() || '',
+      amount: this.getPlanAmount(sub.plan),
+    }));
 
     return { data, total, skip, take };
   }

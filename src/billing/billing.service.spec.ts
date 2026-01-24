@@ -22,6 +22,7 @@ describe('BillingService', () => {
     updatedAt: new Date(),
     deletedAt: null,
     payments: [],
+    restaurant: { name: 'Test Restaurant' },
   };
 
   beforeEach(async () => {
@@ -61,6 +62,8 @@ describe('BillingService', () => {
       const result = await service.getSubscription('r1');
 
       expect(result.restaurantId).toBe('r1');
+      expect(result.amount).toBe(299.00);
+      expect(result.restaurantName).toBe('Test Restaurant');
     });
 
     it('should throw NotFoundException', async () => {
@@ -104,6 +107,8 @@ describe('BillingService', () => {
       const result = await service.getAllSubscriptions({});
 
       expect(result.data).toHaveLength(1);
+      expect(result.data[0].amount).toBe(299.00);
+      expect(result.data[0].restaurantName).toBe('Test Restaurant');
       expect(result.total).toBe(1);
     });
 

@@ -26,6 +26,7 @@ import { SettingsModule } from './settings/settings.module';
 import { AlertsModule } from './alerts/alerts.module';
 import { ReportsModule } from './reports/reports.module';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
+import { LoggingMiddleware } from './common/middleware/logging.middleware';
 
 @Module({
   imports: [
@@ -72,6 +73,9 @@ import { TenantMiddleware } from './common/middleware/tenant.middleware';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(LoggingMiddleware)
+      .forRoutes('*');
     consumer
       .apply(TenantMiddleware)
       .exclude(
