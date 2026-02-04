@@ -4,17 +4,20 @@ import {
   UseInterceptors,
   UploadedFile,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { UploadsService } from './uploads.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 interface UploadedFileInterface {
+  fieldname: string;
   originalname: string;
-  buffer: Buffer;
+  encoding: string;
   mimetype: string;
   size: number;
+  buffer: Buffer;
 }
 
 @ApiTags('uploads')
@@ -28,6 +31,7 @@ export class UploadsController {
   @UseInterceptors(FileInterceptor('file'))
   @ApiOperation({ summary: 'Upload an image' })
   @ApiConsumes('multipart/form-data')
+  @ApiQuery({ name: 'folder', required: false, type: String })
   @ApiBody({
     schema: {
       type: 'object',
@@ -36,7 +40,10 @@ export class UploadsController {
       },
     },
   })
-  uploadImage(@UploadedFile() file: UploadedFileInterface) {
-    return this.uploadsService.uploadImage(file);
+  uploadImage(
+    @UploadedFile() file: UploadedFileInterface,
+    @Query('folder') folder: string = 'misc',
+  ) {
+    return this.uploadsService.uploadImage(file, folder);
   }
 }

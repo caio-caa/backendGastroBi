@@ -1,9 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { CloudinaryService } from '../common/cloudinary/cloudinary.service';
 
 @Injectable()
 export class SettingsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private cloudinaryService: CloudinaryService,
+  ) {}
 
   async getSettings(restaurantId: string) {
     const restaurant = await this.prisma.restaurant.findUnique({
@@ -105,6 +109,8 @@ export class SettingsService {
       email?: string;
       website?: string;
       description?: string;
+      logo?: string;
+      coverImage?: string;
     },
     userId: string,
   ) {
@@ -117,6 +123,18 @@ export class SettingsService {
     }
 
     const currentAddress = restaurant.address as any || {};
+
+    // Delete old logo from Cloudinary if new one is provided
+    if (dto.logo && currentAddress.logo) {
+      const publicId = this.cloudinaryService.extractPublicId(currentAddress.logo);
+      if (publicId) await this.cloudinaryService.delete(publicId);
+    }
+
+    // Delete old cover image from Cloudinary if new one is provided
+    if (dto.coverImage && currentAddress.coverImage) {
+      const publicId = this.cloudinaryService.extractPublicId(currentAddress.coverImage);
+      if (publicId) await this.cloudinaryService.delete(publicId);
+    }
 
     const updatedRestaurant = await this.prisma.restaurant.update({
       where: { id: restaurantId },
@@ -133,6 +151,8 @@ export class SettingsService {
           zipCode: dto.zipCode ?? currentAddress.zipCode,
           website: dto.website ?? currentAddress.website,
           description: dto.description ?? currentAddress.description,
+          logo: dto.logo ?? currentAddress.logo,
+          coverImage: dto.coverImage ?? currentAddress.coverImage,
         },
       },
     });

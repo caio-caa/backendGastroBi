@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { CloudinaryService } from '../common/cloudinary/cloudinary.service';
 import { AuditAction, UserType, Prisma } from '@prisma/client';
 
 @Injectable()
@@ -8,6 +9,7 @@ export class ProductsService {
   constructor(
     private prisma: PrismaService,
     private auditLogsService: AuditLogsService,
+    private cloudinaryService: CloudinaryService,
   ) {}
 
   async create(dto: {
@@ -106,7 +108,14 @@ export class ProductsService {
     originalPrice: number;
     tags: string[];
   }>, userId?: string) {
-    await this.findOne(id, restaurantId);
+    const product = await this.findOne(id, restaurantId);
+
+    // Delete old image if new one is being uploaded
+    if (dto.image && product.image && dto.image !== product.image) {
+      await this.cloudinaryService.delete(
+        this.cloudinaryService.extractPublicId(product.image) || '',
+      );
+    }
 
     const updated = await this.prisma.product.update({
       where: { id },
@@ -135,6 +144,13 @@ export class ProductsService {
 
   async remove(id: string, restaurantId: string, userId?: string) {
     const product = await this.findOne(id, restaurantId);
+
+    // Delete image from Cloudinary if exists
+    if (product.image) {
+      await this.cloudinaryService.delete(
+        this.cloudinaryService.extractPublicId(product.image) || '',
+      );
+    }
 
     await this.prisma.product.delete({ where: { id } });
 

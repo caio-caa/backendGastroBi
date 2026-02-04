@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { CloudinaryService } from '../common/cloudinary/cloudinary.service';
 import { AuditAction, UserType } from '@prisma/client';
 
 @Injectable()
@@ -8,6 +9,7 @@ export class CategoriesService {
   constructor(
     private prisma: PrismaService,
     private auditLogsService: AuditLogsService,
+    private cloudinaryService: CloudinaryService,
   ) {}
 
   async create(dto: {
@@ -78,7 +80,14 @@ export class CategoriesService {
     order: number;
     isActive: boolean;
   }>, userId?: string) {
-    await this.findOne(id, restaurantId);
+    const category = await this.findOne(id, restaurantId);
+
+    // Delete old image if new one is being uploaded
+    if (dto.image && category.image && dto.image !== category.image) {
+      await this.cloudinaryService.delete(
+        this.cloudinaryService.extractPublicId(category.image) || '',
+      );
+    }
 
     const updated = await this.prisma.category.update({
       where: { id },
@@ -101,6 +110,13 @@ export class CategoriesService {
 
   async remove(id: string, restaurantId: string, userId?: string) {
     const category = await this.findOne(id, restaurantId);
+
+    // Delete image from Cloudinary if exists
+    if (category.image) {
+      await this.cloudinaryService.delete(
+        this.cloudinaryService.extractPublicId(category.image) || '',
+      );
+    }
 
     await this.prisma.category.delete({ where: { id } });
 

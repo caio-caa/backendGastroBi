@@ -7,6 +7,7 @@ import {
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { CloudinaryService } from '../common/cloudinary/cloudinary.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { AuditAction, UserType } from '@prisma/client';
@@ -16,6 +17,7 @@ export class UsersService {
   constructor(
     private prisma: PrismaService,
     private auditLogsService: AuditLogsService,
+    private cloudinaryService: CloudinaryService,
   ) {}
 
   async create(dto: CreateUserDto, adminId: string) {
@@ -156,6 +158,12 @@ export class UsersService {
   async remove(id: string, adminId: string) {
     const user = await this.findOne(id);
 
+    // Delete avatar from Cloudinary if it exists
+    if (user.avatar) {
+      const publicId = this.cloudinaryService.extractPublicId(user.avatar);
+      if (publicId) await this.cloudinaryService.delete(publicId);
+    }
+
     await this.prisma.user.delete({ where: { id } });
 
     await this.auditLogsService.create({
@@ -166,6 +174,34 @@ export class UsersService {
       entityId: id,
       oldValue: { email: user.email, fullName: user.fullName },
     });
+  }
+
+  async updateAvatar(id: string, avatarUrl: string, adminId: string) {
+    const user = await this.findOne(id);
+
+    // Delete old avatar from Cloudinary if it exists
+    if (user.avatar) {
+      const publicId = this.cloudinaryService.extractPublicId(user.avatar);
+      if (publicId) await this.cloudinaryService.delete(publicId);
+    }
+
+    const updatedUser = await this.prisma.user.update({
+      where: { id },
+      data: { avatar: avatarUrl },
+    });
+
+    await this.auditLogsService.create({
+      userId: adminId,
+      userType: UserType.ADMIN,
+      action: AuditAction.UPDATE,
+      entity: 'User',
+      entityId: id,
+      oldValue: { avatar: user.avatar },
+      newValue: { avatar: avatarUrl },
+    });
+
+    const { passwordHash, twoFactorSecret, ...userWithoutSecrets } = updatedUser;
+    return userWithoutSecrets;
   }
 
   async ban(id: string, adminId: string) {

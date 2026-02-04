@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { CloudinaryService } from '../common/cloudinary/cloudinary.service';
 import { AuditAction, UserType } from '@prisma/client';
 
 @Injectable()
@@ -8,6 +9,7 @@ export class WhiteLabelService {
   constructor(
     private prisma: PrismaService,
     private auditLogsService: AuditLogsService,
+    private cloudinaryService: CloudinaryService,
   ) {}
 
   async create(dto: {
@@ -100,7 +102,17 @@ export class WhiteLabelService {
     customCSS: string;
     customJS: string;
   }>, adminId: string) {
-    await this.findOne(id);
+    const config = await this.findOne(id);
+
+    // Delete old images from Cloudinary if new ones are provided
+    if (dto.logo && config.logo) {
+      const publicId = this.cloudinaryService.extractPublicId(config.logo);
+      if (publicId) await this.cloudinaryService.delete(publicId);
+    }
+    if (dto.favicon && config.favicon) {
+      const publicId = this.cloudinaryService.extractPublicId(config.favicon);
+      if (publicId) await this.cloudinaryService.delete(publicId);
+    }
 
     const updated = await this.prisma.whiteLabelConfig.update({
       where: { id },
@@ -124,6 +136,16 @@ export class WhiteLabelService {
 
   async remove(id: string, adminId: string) {
     const config = await this.findOne(id);
+
+    // Delete logo and favicon from Cloudinary if they exist
+    if (config.logo) {
+      const publicId = this.cloudinaryService.extractPublicId(config.logo);
+      if (publicId) await this.cloudinaryService.delete(publicId);
+    }
+    if (config.favicon) {
+      const publicId = this.cloudinaryService.extractPublicId(config.favicon);
+      if (publicId) await this.cloudinaryService.delete(publicId);
+    }
 
     await this.prisma.whiteLabelConfig.delete({ where: { id } });
 

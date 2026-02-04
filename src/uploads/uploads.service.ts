@@ -1,24 +1,27 @@
 import { Injectable } from '@nestjs/common';
-import * as crypto from 'crypto';
+import { CloudinaryService } from '../common/cloudinary/cloudinary.service';
 
 interface UploadedFile {
+  fieldname: string;
   originalname: string;
-  buffer: Buffer;
+  encoding: string;
   mimetype: string;
   size: number;
+  buffer: Buffer;
 }
 
 @Injectable()
 export class UploadsService {
-  async uploadImage(file: UploadedFile): Promise<{ url: string }> {
-    // In production, this would upload to Cloudinary or similar
-    // Generate a safe filename using hash instead of original name
-    const fileHash = crypto.randomBytes(16).toString('hex');
-    const extension = file.originalname.split('.').pop()?.toLowerCase() || 'jpg';
-    const safeExtension = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension) ? extension : 'jpg';
-    
-    return {
-      url: `https://via.placeholder.com/400?text=${fileHash}.${safeExtension}`,
-    };
+  constructor(private cloudinaryService: CloudinaryService) {}
+
+  async uploadImage(file: UploadedFile, folder: string = 'misc'): Promise<{ url: string; publicId: string }> {
+    return this.cloudinaryService.upload(file, folder);
+  }
+
+  async deleteImage(url: string): Promise<void> {
+    const publicId = this.cloudinaryService.extractPublicId(url);
+    if (publicId) {
+      await this.cloudinaryService.delete(publicId);
+    }
   }
 }

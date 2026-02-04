@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { CloudinaryService } from '../common/cloudinary/cloudinary.service';
 import { AuditAction, UserType, RestaurantStatus } from '@prisma/client';
 
 @Injectable()
@@ -12,6 +13,7 @@ export class RestaurantsService {
   constructor(
     private prisma: PrismaService,
     private auditLogsService: AuditLogsService,
+    private cloudinaryService: CloudinaryService,
   ) {}
 
   async create(dto: {
@@ -206,6 +208,20 @@ export class RestaurantsService {
 
   async remove(id: string, adminId: string) {
     const restaurant = await this.findOne(id);
+
+    // Delete restaurant images from Cloudinary if they exist
+    if (restaurant.settings && typeof restaurant.settings === 'object') {
+      const settings = restaurant.settings as any;
+      
+      if (settings.logo) {
+        const publicId = this.cloudinaryService.extractPublicId(settings.logo);
+        if (publicId) await this.cloudinaryService.delete(publicId);
+      }
+      if (settings.cover) {
+        const publicId = this.cloudinaryService.extractPublicId(settings.cover);
+        if (publicId) await this.cloudinaryService.delete(publicId);
+      }
+    }
 
     await this.prisma.restaurant.delete({ where: { id } });
 
