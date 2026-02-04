@@ -217,4 +217,53 @@ export class UsersService {
     await this.update(id, { password: tempPassword }, adminId);
     return { tempPassword };
   }
+
+  async switchRestaurant(userId: string, restaurantId: string) {
+    const user = await this.findOne(userId);
+
+    // Check if user has access to this restaurant
+    const restaurantAccess = await this.prisma.restaurantUser.findFirst({
+      where: {
+        userId,
+        restaurantId,
+      },
+    });
+
+    if (!restaurantAccess) {
+      throw new NotFoundException('Restaurant not found or access denied');
+    }
+
+    // Get restaurant details
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+    });
+
+    if (!restaurant) {
+      throw new NotFoundException('Restaurant not found');
+    }
+
+    return {
+      success: true,
+      message: 'Restaurant switched successfully',
+      data: {
+        user: {
+          id: user.id,
+          fullName: user.fullName,
+          email: user.email,
+          role: user.role,
+          currentRestaurant: {
+            id: restaurant.id,
+            name: restaurant.name,
+            slug: restaurant.slug,
+            cnpj: restaurant.cnpj,
+            status: restaurant.status,
+            phone: restaurant.phone,
+            email: restaurant.email,
+            address: restaurant.address,
+            timezone: restaurant.timezone,
+          },
+        },
+      },
+    };
+  }
 }

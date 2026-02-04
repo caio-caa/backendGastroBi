@@ -4,6 +4,7 @@ import {
   Post,
   Body,
   Patch,
+  Put,
   Param,
   Delete,
   UseGuards,
@@ -84,5 +85,14 @@ export class UsersController {
   @ApiOperation({ summary: 'Reset user password' })
   resetPassword(@Param('id') id: string, @CurrentUser('sub') adminId: string) {
     return this.usersService.resetPassword(id, adminId);
+  }
+
+  @Put('current-restaurant/:restaurantId')
+  @ApiOperation({ summary: 'Switch to a different restaurant' })
+  switchRestaurant(
+    @Param('restaurantId') restaurantId: string,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.usersService.switchRestaurant(userId, restaurantId);
   }
 }
