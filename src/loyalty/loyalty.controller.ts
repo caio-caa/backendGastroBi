@@ -12,19 +12,22 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { LoyaltyService } from './loyalty.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../common/guards/tenant.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { TenantId } from '../common/decorators/tenant-id.decorator';
-import { LoyaltyRuleType, LoyaltyRewardType } from '@prisma/client';
+import { Roles } from '../common/decorators/roles.decorator';
+import { LoyaltyRuleType, LoyaltyRewardType, UserRole } from '@prisma/client';
 
 @ApiTags('loyalty')
 @Controller('loyalty')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @ApiBearerAuth()
 export class LoyaltyController {
   constructor(private readonly loyaltyService: LoyaltyService) {}
 
   // Rules
   @Post('rules')
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
   @ApiOperation({ summary: 'Create a loyalty rule' })
   createRule(
     @Body() dto: { name: string; type: LoyaltyRuleType; points: number; description?: string },
@@ -35,12 +38,14 @@ export class LoyaltyController {
   }
 
   @Get('rules')
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
   @ApiOperation({ summary: 'Get all loyalty rules' })
   findAllRules(@TenantId() restaurantId: string) {
     return this.loyaltyService.findAllRules(restaurantId);
   }
 
   @Patch('rules/:id')
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
   @ApiOperation({ summary: 'Update a loyalty rule' })
   updateRule(
     @Param('id') id: string,
@@ -52,6 +57,7 @@ export class LoyaltyController {
   }
 
   @Delete('rules/:id')
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
   @ApiOperation({ summary: 'Delete a loyalty rule' })
   deleteRule(
     @Param('id') id: string,
@@ -63,6 +69,7 @@ export class LoyaltyController {
 
   // Rewards
   @Post('rewards')
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
   @ApiOperation({ summary: 'Create a loyalty reward' })
   createReward(
     @Body() dto: { name: string; pointsCost: number; type: LoyaltyRewardType; value?: number; description?: string },
@@ -73,12 +80,14 @@ export class LoyaltyController {
   }
 
   @Get('rewards')
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
   @ApiOperation({ summary: 'Get all loyalty rewards' })
   findAllRewards(@TenantId() restaurantId: string) {
     return this.loyaltyService.findAllRewards(restaurantId);
   }
 
   @Patch('rewards/:id')
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
   @ApiOperation({ summary: 'Update a loyalty reward' })
   updateReward(
     @Param('id') id: string,
@@ -90,6 +99,7 @@ export class LoyaltyController {
   }
 
   @Delete('rewards/:id')
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
   @ApiOperation({ summary: 'Delete a loyalty reward' })
   deleteReward(
     @Param('id') id: string,
@@ -101,6 +111,7 @@ export class LoyaltyController {
 
   // Redemption
   @Post('redeem')
+  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF, UserRole.WAITER)
   @ApiOperation({ summary: 'Redeem a reward' })
   redeem(
     @Body() dto: { customerId: string; rewardId: string },
@@ -110,6 +121,7 @@ export class LoyaltyController {
   }
 
   @Get('history/:customerId')
+  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF, UserRole.WAITER)
   @ApiOperation({ summary: 'Get customer loyalty history' })
   getHistory(
     @Param('customerId') customerId: string,

@@ -15,19 +15,22 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiHeader } from '@nest
 import { OrdersService } from './orders.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../common/guards/tenant.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { TenantId } from '../common/decorators/tenant-id.decorator';
+import { Roles } from '../common/decorators/roles.decorator';
 import { Public } from '../common/decorators/public.decorator';
-import { OrderType, OrderStatus, Prisma } from '@prisma/client';
+import { OrderType, OrderStatus, UserRole, Prisma } from '@prisma/client';
 
 @ApiTags('orders')
 @Controller('orders')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @ApiBearerAuth()
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Post()
+  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF, UserRole.WAITER)
   @ApiOperation({ summary: 'Create a new order' })
   @ApiHeader({ name: 'x-idempotency-key', required: false })
   create(
@@ -50,6 +53,7 @@ export class OrdersController {
   }
 
   @Get()
+  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF, UserRole.WAITER)
   @ApiOperation({ summary: 'Get all orders' })
   @ApiQuery({ name: 'skip', required: false, type: Number })
   @ApiQuery({ name: 'take', required: false, type: Number })
@@ -66,12 +70,14 @@ export class OrdersController {
   }
 
   @Get('kitchen')
+  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF, UserRole.WAITER)
   @ApiOperation({ summary: 'Get kitchen orders' })
   getKitchenOrders(@TenantId() restaurantId: string) {
     return this.ordersService.getKitchenOrders(restaurantId);
   }
 
   @Get('reports')
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
   @ApiOperation({ summary: 'Get order reports' })
   @ApiQuery({ name: 'startDate', required: true })
   @ApiQuery({ name: 'endDate', required: true })
@@ -88,12 +94,14 @@ export class OrdersController {
   }
 
   @Get(':id')
+  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF, UserRole.WAITER)
   @ApiOperation({ summary: 'Get an order by ID' })
   findOne(@Param('id') id: string, @TenantId() restaurantId: string) {
     return this.ordersService.findOne(id, restaurantId);
   }
 
   @Patch(':id/status')
+  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF, UserRole.WAITER)
   @ApiOperation({ summary: 'Update order status' })
   updateStatus(
     @Param('id') id: string,
@@ -105,6 +113,7 @@ export class OrdersController {
   }
 
   @Post(':id/cancel')
+  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF, UserRole.WAITER)
   @ApiOperation({ summary: 'Cancel an order' })
   cancel(
     @Param('id') id: string,

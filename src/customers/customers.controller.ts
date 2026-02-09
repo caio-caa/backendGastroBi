@@ -15,18 +15,21 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger'
 import { CustomersService } from './customers.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../common/guards/tenant.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { TenantId } from '../common/decorators/tenant-id.decorator';
-import { CustomerLevel } from '@prisma/client';
+import { Roles } from '../common/decorators/roles.decorator';
+import { CustomerLevel, UserRole } from '@prisma/client';
 
 @ApiTags('customers')
 @Controller('customers')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @ApiBearerAuth()
 export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
 
   @Post()
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
   @ApiOperation({ summary: 'Create a new customer' })
   create(
     @Body() dto: { name: string; phone: string; email?: string; birthday?: string; tags?: string[] },
@@ -41,6 +44,7 @@ export class CustomersController {
   }
 
   @Get()
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
   @ApiOperation({ summary: 'Get all customers' })
   @ApiQuery({ name: 'skip', required: false, type: Number })
   @ApiQuery({ name: 'take', required: false, type: Number })
@@ -57,12 +61,14 @@ export class CustomersController {
   }
 
   @Get(':id')
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
   @ApiOperation({ summary: 'Get a customer by ID' })
   findOne(@Param('id') id: string, @TenantId() restaurantId: string) {
     return this.customersService.findOne(id, restaurantId);
   }
 
   @Patch(':id')
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
   @ApiOperation({ summary: 'Update a customer' })
   update(
     @Param('id') id: string,

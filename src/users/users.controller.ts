@@ -16,10 +16,13 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger'
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { CreateWaiterDto } from './dto/create-waiter.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../common/guards/admin.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { UserType } from '@prisma/client';
+import { Roles } from '../common/decorators/roles.decorator';
+import { UserType, UserRole } from '@prisma/client';
 
 @ApiTags('users')
 @Controller('admin/users')
@@ -94,5 +97,16 @@ export class UsersController {
     @CurrentUser('sub') userId: string,
   ) {
     return this.usersService.switchRestaurant(userId, restaurantId);
+  }
+
+  @Post('waiter')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
+  @ApiOperation({ summary: 'Create a waiter (Owner/Manager only)' })
+  createWaiter(
+    @Body() dto: CreateWaiterDto,
+    @CurrentUser('sub') restaurantOwnerId: string,
+  ) {
+    return this.usersService.createWaiter(dto, restaurantOwnerId);
   }
 }

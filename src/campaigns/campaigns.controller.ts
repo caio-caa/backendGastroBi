@@ -15,18 +15,21 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger'
 import { CampaignsService } from './campaigns.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../common/guards/tenant.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { TenantId } from '../common/decorators/tenant-id.decorator';
-import { CampaignType, CampaignStatus } from '@prisma/client';
+import { Roles } from '../common/decorators/roles.decorator';
+import { CampaignType, CampaignStatus, UserRole } from '@prisma/client';
 
 @ApiTags('campaigns')
 @Controller('campaigns')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @ApiBearerAuth()
 export class CampaignsController {
   constructor(private readonly campaignsService: CampaignsService) {}
 
   @Post()
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
   @ApiOperation({ summary: 'Create a new campaign' })
   create(
     @Body() dto: { name: string; type: CampaignType; message: string; segmentation?: unknown },
@@ -37,6 +40,7 @@ export class CampaignsController {
   }
 
   @Get()
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
   @ApiOperation({ summary: 'Get all campaigns' })
   @ApiQuery({ name: 'skip', required: false, type: Number })
   @ApiQuery({ name: 'take', required: false, type: Number })
@@ -53,12 +57,14 @@ export class CampaignsController {
   }
 
   @Get(':id')
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
   @ApiOperation({ summary: 'Get a campaign by ID' })
   findOne(@Param('id') id: string, @TenantId() restaurantId: string) {
     return this.campaignsService.findOne(id, restaurantId);
   }
 
   @Patch(':id')
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
   @ApiOperation({ summary: 'Update a campaign' })
   update(
     @Param('id') id: string,

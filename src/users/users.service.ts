@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../common/prisma/prisma.service';
@@ -265,5 +266,67 @@ export class UsersService {
         },
       },
     };
+  }
+
+  async createWaiter(
+    dto: { fullName: string; email: string; password: string; restaurantId: string },
+    restaurantOwnerId: string,
+  ) {
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
+
+    if (existingUser) {
+      throw new ConflictException('Email already exists');
+    }
+
+    // Verify restaurant exists and user is owner/manager
+    const restaurantUser = await this.prisma.restaurantUser.findFirst({
+      where: {
+        userId: restaurantOwnerId,
+        restaurantId: dto.restaurantId,
+        role: { in: ['OWNER', 'MANAGER'] },
+      },
+    });
+
+    if (!restaurantUser) {
+      throw new ForbiddenException(
+        'You do not have permission to create waiters for this restaurant',
+      );
+    }
+
+    const passwordHash = await bcrypt.hash(dto.password, 10);
+
+    const user = await this.prisma.user.create({
+      data: {
+        email: dto.email,
+        passwordHash,
+        fullName: dto.fullName,
+        type: UserType.RESTAURANT,
+        role: 'WAITER',
+      },
+    });
+
+    // Create association with restaurant
+    await this.prisma.restaurantUser.create({
+      data: {
+        userId: user.id,
+        restaurantId: dto.restaurantId,
+        role: 'WAITER',
+        isDefault: true,
+      },
+    });
+
+    await this.auditLogsService.create({
+      userId: restaurantOwnerId,
+      userType: UserType.RESTAURANT,
+      action: AuditAction.CREATE,
+      entity: 'Waiter',
+      entityId: user.id,
+      newValue: { email: user.email, fullName: user.fullName },
+    });
+
+    const { passwordHash: _, twoFactorSecret, ...userWithoutSecrets } = user;
+    return userWithoutSecrets;
   }
 }

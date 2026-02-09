@@ -25,6 +25,7 @@ enum UserRole {
   OWNER
   MANAGER
   STAFF
+  WAITER
 }
 
 enum RestaurantStatus {
