@@ -131,6 +131,42 @@ async function main() {
   });
   console.log('✅ Owner associated with restaurant');
 
+  // 5.1 Create Waiter User for Testing
+  const waiterPassword = await bcrypt.hash('garcom123', 10);
+  const waiter = await prisma.user.upsert({
+    where: { email: 'garcom@restaurante.com' },
+    update: {},
+    create: {
+      email: 'garcom@restaurante.com',
+      passwordHash: waiterPassword,
+      fullName: 'Carlos Garçom',
+      phone: '(11) 99999-9998',
+      type: UserType.RESTAURANT,
+      role: UserRole.WAITER,
+      isActive: true,
+    },
+  });
+  console.log('✅ Waiter created:', waiter.email);
+
+  // 5.2 Associate Waiter with Restaurant
+  await prisma.restaurantUser.upsert({
+    where: {
+      userId_restaurantId: {
+        userId: waiter.id,
+        restaurantId: restaurant.id,
+      },
+    },
+    update: {},
+    create: {
+      userId: waiter.id,
+      restaurantId: restaurant.id,
+      role: UserRole.WAITER,
+      isDefault: true,
+      permissions: ['orders', 'products', 'categories', 'tables', 'loyalty'],
+    },
+  });
+  console.log('✅ Waiter associated with restaurant');
+
   // 6. Create Subscription
   await prisma.subscription.upsert({
     where: { restaurantId: restaurant.id },
